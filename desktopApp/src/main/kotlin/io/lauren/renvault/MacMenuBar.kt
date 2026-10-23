@@ -2,6 +2,7 @@ package io.lauren.renvault
 
 import io.lauren.renvault.lib.RvStrings
 import io.lauren.renvault.ui.components.RvAccountMenuActions
+import io.lauren.renvault.ui.components.RvEditAction
 import java.awt.EventQueue
 import java.awt.KeyboardFocusManager
 import java.awt.event.InputEvent
@@ -23,12 +24,19 @@ internal object MacMenuBar {
     private var onOpen: () -> Unit = {}
     private var accountActions: RvAccountMenuActions? = null
     private var installed = false
+    private var editActions = 0
 
     fun install(strings: RvStrings, onOpen: () -> Unit) {
         this.onOpen = onOpen
         installNative(strings)
         installed = true
         syncAccountState()
+        updateEditNative(editActions)
+    }
+
+    fun updateEdit(actions: Int) {
+        editActions = actions
+        if (installed) updateEditNative(actions)
     }
 
     fun updateAccount(actions: RvAccountMenuActions?) {
@@ -64,6 +72,15 @@ internal object MacMenuBar {
                 action()
                 return@invokeLater
             }
+            val editAction = when (keyCode) {
+                KeyEvent.VK_Z -> if (shift) RvEditAction.Redo else RvEditAction.Undo
+                KeyEvent.VK_X -> RvEditAction.Cut
+                KeyEvent.VK_C -> RvEditAction.Copy
+                KeyEvent.VK_V -> RvEditAction.Paste
+                KeyEvent.VK_A -> RvEditAction.SelectAll
+                else -> return@invokeLater
+            }
+            if (editActions and editAction.mask == 0) return@invokeLater
             val manager = KeyboardFocusManager.getCurrentKeyboardFocusManager()
             val target = manager.focusOwner ?: return@invokeLater
             val modifiers = InputEvent.META_DOWN_MASK or if (shift) InputEvent.SHIFT_DOWN_MASK else 0
@@ -76,4 +93,5 @@ internal object MacMenuBar {
 
     private external fun installNative(strings: RvStrings)
     private external fun updateAccountNative(enabled: Boolean, local: Boolean, profile: Boolean, devices: Boolean)
+    private external fun updateEditNative(actions: Int)
 }

@@ -13,6 +13,30 @@ typedef NS_ENUM(NSInteger, RVAccountAction) {
     RVSignOut = -5,
 };
 
+// Matches RvEditAction.mask. No field contents are stored on the AppKit side.
+static NSInteger editMask(NSInteger tag) {
+    switch (tag) {
+        case 'Z': return 1;
+        case 'Z' | 0x100: return 2;
+        case 'X': return 4;
+        case 'C': return 8;
+        case 'V': return 16;
+        case 'A': return 32;
+        default: return 0;
+    }
+}
+
+static SEL editSelector(NSInteger tag) {
+    switch (tag) {
+        case 'Z': return @selector(undo:);
+        case 'Z' | 0x100: return @selector(redo:);
+        case 'X': return @selector(cut:);
+        case 'C': return @selector(copy:);
+        case 'V': return @selector(paste:);
+        default: return @selector(selectAll:);
+    }
+}
+
 static void sendJavaAction(jint keyCode, jboolean shift) {
     JNIEnv *env;
     BOOL attached = (*javaVM)->GetEnv(javaVM, (void **)&env, JNI_VERSION_1_6) == JNI_OK;
@@ -39,6 +63,7 @@ static void sendJavaAction(jint keyCode, jboolean shift) {
 @property BOOL localAccount;
 @property BOOL profileAvailable;
 @property BOOL devicesAvailable;
+@property NSInteger editActions;
 - (instancetype)initWithTitles:(NSDictionary<NSString *, NSString *> *)titles;
 - (void)updateTitles:(NSDictionary<NSString *, NSString *> *)titles;
 - (void)updateAccountItems;
@@ -182,7 +207,19 @@ static RVMacMenuBar *applicationMenus;
         if (item.tag == RVOpenDevices) return self.devicesAvailable;
         return YES;
     }
-    return item.action != @selector(edit:) || NSApp.keyWindow != nil;
+    if (item.action != @selector(edit:)) return YES;
+    if (NSApp.keyWindow == nil) return NO;
+    if ([NSApp.keyWindow.firstResponder isKindOfClass:NSText.class]) {
+        SEL action = editSelector(item.tag);
+        id target = [NSApp targetForAction:action to:nil from:item];
+        if (target == nil) return NO;
+        NSMenuItem *nativeItem = [[NSMenuItem alloc] initWithTitle:item.title action:action keyEquivalent:@""];
+        if ([target respondsToSelector:@selector(validateMenuItem:)]) return [target validateMenuItem:nativeItem];
+        if ([target respondsToSelector:@selector(validateUserInterfaceItem:)]) return [target validateUserInterfaceItem:nativeItem];
+        return YES;
+    }
+    if ((self.editActions & editMask(item.tag)) == 0) return NO;
+    return item.tag != 'V' || [NSPasteboard.generalPasteboard canReadObjectForClasses:@[NSString.class] options:@{}];
 }
 
 - (void)openWindow:(id)sender { sendJavaAction(0, JNI_FALSE); }
@@ -192,20 +229,13 @@ static RVMacMenuBar *applicationMenus;
 }
 
 - (void)edit:(NSMenuItem *)sender {
+    if (![self validateMenuItem:sender]) return;
     BOOL shift = (sender.tag & 0x100) != 0;
     jint key = sender.tag & 0xff;
-    SEL action;
-    switch (key) {
-        case 'Z': action = shift ? @selector(redo:) : @selector(undo:); break;
-        case 'X': action = @selector(cut:); break;
-        case 'C': action = @selector(copy:); break;
-        case 'V': action = @selector(paste:); break;
-        default: action = @selector(selectAll:); break;
-    }
     // Native text editors (for example in a file dialog) use the responder chain.
     // NSWindow also implements undo:, but its undo manager cannot edit Compose text.
     if ([NSApp.keyWindow.firstResponder isKindOfClass:NSText.class]) {
-        [NSApp sendAction:action to:nil from:sender];
+        [NSApp sendAction:editSelector(sender.tag) to:nil from:sender];
     } else {
         sendJavaAction(key, shift);
     }
@@ -275,5 +305,12 @@ JNIEXPORT void JNICALL Java_io_lauren_renvault_MacMenuBar_updateAccountNative(
         applicationMenus.profileAvailable = profile;
         applicationMenus.devicesAvailable = devices;
         [applicationMenus updateAccountItems];
+    });
+}
+
+JNIEXPORT void JNICALL Java_io_lauren_renvault_MacMenuBar_updateEditNative(JNIEnv *env, jobject self, jint actions) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        applicationMenus.editActions = actions;
+        [applicationMenus.editMenu update];
     });
 }

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,8 @@ import io.lauren.renvault.ui.components.RvLockIcon
 import io.lauren.renvault.ui.rememberStrings
 import java.awt.SystemTray
 import io.lauren.renvault.ui.components.RvTitleBar
+import io.lauren.renvault.ui.components.LocalEditMenu
+import io.lauren.renvault.ui.components.RvEditMenu
 import io.lauren.renvault.ui.theme.RenVaultTheme
 import java.awt.Cursor
 import java.awt.Desktop
@@ -67,6 +70,7 @@ fun main() {
 private fun vaultApplication() = application {
     val state = rememberWindowState(size = StartSize)
     val macOS = remember { System.getProperty("os.name").startsWith("Mac", ignoreCase = true) }
+    val editMenu = remember { if (macOS) RvEditMenu(MacMenuBar::updateEdit) else null }
     val tray = remember { runCatching { SystemTray.isSupported() }.getOrDefault(false) }
     var visible by remember { mutableStateOf(true) }
     val strings = rememberStrings(currentLocaleTag())
@@ -124,36 +128,38 @@ private fun vaultApplication() = application {
         }
 
         RenVaultTheme {
-            Box(modifier = Modifier.fillMaxSize()) {
-                RvVaultApp(
-                    title = "RenVault",
-                    onAccountMenuActions = if (macOS) MacMenuBar::updateAccount else null,
-                    titleBar = {
-                        TitleDrag(
-                            maximised = maximised,
-                            onRestore = { state.placement = WindowPlacement.Floating },
-                        ) {
-                            RvTitleBar(
-                                title = "RenVault",
+            CompositionLocalProvider(LocalEditMenu provides editMenu) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    RvVaultApp(
+                        title = "RenVault",
+                        onAccountMenuActions = if (macOS) MacMenuBar::updateAccount else null,
+                        titleBar = {
+                            TitleDrag(
                                 maximised = maximised,
-                                onMinimise = { state.isMinimized = true },
-                                onToggleMaximise = {
-                                    state.placement = if (maximised) {
-                                        WindowPlacement.Floating
-                                    } else {
-                                        WindowPlacement.Maximized
-                                    }
-                                },
-                                onClose = close,
-                            )
-                        }
-                    },
-                    onOpenUrl = { target ->
-                        runCatching { Desktop.getDesktop().browse(URI(target)) }
-                    },
-                )
+                                onRestore = { state.placement = WindowPlacement.Floating },
+                            ) {
+                                RvTitleBar(
+                                    title = "RenVault",
+                                    maximised = maximised,
+                                    onMinimise = { state.isMinimized = true },
+                                    onToggleMaximise = {
+                                        state.placement = if (maximised) {
+                                            WindowPlacement.Floating
+                                        } else {
+                                            WindowPlacement.Maximized
+                                        }
+                                    },
+                                    onClose = close,
+                                )
+                            }
+                        },
+                        onOpenUrl = { target ->
+                            runCatching { Desktop.getDesktop().browse(URI(target)) }
+                        },
+                    )
 
-                if (!maximised) ResizeFrame()
+                    if (!maximised) ResizeFrame()
+                }
             }
         }
     }
