@@ -9,7 +9,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,10 +25,12 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedSecureTextField
 import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,8 +43,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.lauren.renvault.lib.RvPasswordStrength
 import io.lauren.renvault.ui.theme.RenVault
@@ -80,57 +84,91 @@ fun RvTextField(
     imeAction: ImeAction = ImeAction.Next,
     focusRequester: FocusRequester? = null,
     onDone: (() -> Unit)? = null,
+    inputTransformation: InputTransformation? = null,
 ) {
     var ownShown by remember { mutableStateOf(false) }
     val visible = shown ?: ownShown
     val reveal: (Boolean) -> Unit = onShownChange ?: { ownShown = it }
     val note = error ?: supporting
+    val state = rememberEditFieldState(value, onValueChange)
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
+    val ownFocusRequester = remember { FocusRequester() }
+    val fieldFocusRequester = focusRequester ?: ownFocusRequester
+    val concealed = secret && !visible
+    ObserveEditMenu(state, interactionSource, enabled, sensitive = concealed)
+    // Revealing a password replaces the secure editor; retain its focus and selection.
+    val restoreFocus = focused
+    val selection = state.selection
+    LaunchedEffect(concealed) {
+        if (restoreFocus) {
+            fieldFocusRequester.requestFocus()
+            state.edit { this.selection = selection }
+        }
+    }
+
+    val fieldModifier = Modifier
+        .fillMaxWidth()
+        .heightIn(min = if (lines == 1) FieldHeight else 0.dp)
+        .focusRequester(fieldFocusRequester)
+    val fieldKeyboard = KeyboardOptions(
+        capitalization = capitalization,
+        autoCorrectEnabled = !secret && keyboard == KeyboardType.Text && lines > 1,
+        keyboardType = if (secret) KeyboardType.Password else keyboard,
+        imeAction = if (onDone != null) ImeAction.Done else imeAction,
+    )
+    val fieldTrailing: (@Composable () -> Unit)? = when {
+        trailing != null -> trailing
+        secret -> {
+            {
+                IconButton(
+                    onClick = { reveal(!visible) },
+                    shapes = IconButtonDefaults.shapes(),
+                ) {
+                    Icon(
+                        imageVector = if (visible) RvVisibilityOffIcon else RvVisibilityIcon,
+                        contentDescription = null,
+                    )
+                }
+            }
+        }
+        else -> null
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = if (lines == 1) FieldHeight else 0.dp)
-                .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
-            enabled = enabled,
-            label = { Text(label) },
-            leadingIcon = leading?.let { icon -> { Icon(icon, contentDescription = null) } },
-            trailingIcon = when {
-                trailing != null -> trailing
-                secret -> {
-                    {
-                        IconButton(
-                            onClick = { reveal(!visible) },
-                            shapes = IconButtonDefaults.shapes(),
-                        ) {
-                            Icon(
-                                imageVector = if (visible) RvVisibilityOffIcon else RvVisibilityIcon,
-                                contentDescription = null,
-                            )
-                        }
-                    }
-                }
-                else -> null
-            },
-            isError = error != null,
-            visualTransformation = if (secret && !visible) {
-                PasswordVisualTransformation()
-            } else {
-                VisualTransformation.None
-            },
-            keyboardOptions = KeyboardOptions(
-                capitalization = capitalization,
-                autoCorrectEnabled = !secret && keyboard == KeyboardType.Text && lines > 1,
-                keyboardType = if (secret) KeyboardType.Password else keyboard,
-                imeAction = if (onDone != null) ImeAction.Done else imeAction,
-            ),
-            keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
-            singleLine = lines == 1,
-            minLines = lines,
-            shape = MaterialTheme.shapes.large,
-        )
+        if (concealed) {
+            OutlinedSecureTextField(
+                state = state,
+                modifier = fieldModifier,
+                enabled = enabled,
+                label = { Text(label) },
+                leadingIcon = leading?.let { icon -> { Icon(icon, contentDescription = null) } },
+                trailingIcon = fieldTrailing,
+                isError = error != null,
+                textObfuscationMode = TextObfuscationMode.Hidden,
+                keyboardOptions = fieldKeyboard,
+                onKeyboardAction = onDone?.let { done -> { done() } },
+                inputTransformation = inputTransformation,
+                interactionSource = interactionSource,
+                shape = MaterialTheme.shapes.large,
+            )
+        } else {
+            OutlinedTextField(
+                state = state,
+                modifier = fieldModifier,
+                enabled = enabled,
+                label = { Text(label) },
+                leadingIcon = leading?.let { icon -> { Icon(icon, contentDescription = null) } },
+                trailingIcon = fieldTrailing,
+                isError = error != null,
+                keyboardOptions = fieldKeyboard,
+                onKeyboardAction = onDone?.let { done -> { done() } },
+                lineLimits = if (lines == 1) TextFieldLineLimits.SingleLine else TextFieldLineLimits.MultiLine(minHeightInLines = lines),
+                inputTransformation = inputTransformation,
+                interactionSource = interactionSource,
+                shape = MaterialTheme.shapes.large,
+            )
+        }
         if (note != null) {
             Text(
                 text = note,
@@ -327,6 +365,9 @@ fun RvSearchInput(
     color: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     focusRequester: FocusRequester? = null,
 ) {
+    val state = rememberEditFieldState(query, onQuery)
+    val interactionSource = remember { MutableInteractionSource() }
+    ObserveEditMenu(state, interactionSource)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -348,9 +389,9 @@ fun RvSearchInput(
                 )
             }
             BasicTextField(
-                value = query,
-                onValueChange = onQuery,
-                singleLine = true,
+                state = state,
+                lineLimits = TextFieldLineLimits.SingleLine,
+                interactionSource = interactionSource,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search, autoCorrectEnabled = false),

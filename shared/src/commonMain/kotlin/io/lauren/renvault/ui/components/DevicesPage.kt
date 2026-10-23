@@ -1,5 +1,8 @@
 package io.lauren.renvault.ui.components
 
+import androidx.compose.foundation.text.input.InputTransformation
+import androidx.compose.foundation.text.input.byValue
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -426,7 +429,10 @@ internal fun PairJoinForm(
         }
         RvTextField(
             value = code,
-            onValueChange = { next -> onCode(next.filter { it.isDigit() || it == ' ' }.take(PairCodeLength + 1)) },
+            onValueChange = onCode,
+            inputTransformation = InputTransformation.byValue { _, proposed ->
+                proposed.filter { it.isDigit() || it == ' ' }.take(PairCodeLength + 1)
+            },
             label = strings.pairCodeLabel,
             enabled = enabled,
             leading = RvKeyIcon,
