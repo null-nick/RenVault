@@ -322,5 +322,23 @@
     <string name="settings_sync_title">Sincronizzazione</string>
     <string name="photo_filter">Immagini</string>
     <string name="tray_open">Apri RenVault</string>
+    <string name="menu_file">File</string>
+    <string name="menu_close_window">Chiudi finestra</string>
+    <string name="menu_edit">Modifica</string>
+    <string name="menu_undo">Annulla</string>
+    <string name="menu_redo">Ripeti</string>
+    <string name="menu_cut">Taglia</string>
+    <string name="menu_copy">Copia</string>
+    <string name="menu_paste">Incolla</string>
+    <string name="menu_select_all">Seleziona tutto</string>
+    <string name="menu_view">Vista</string>
+    <string name="menu_full_screen">Attiva modalità a tutto schermo</string>
+    <string name="menu_help">Aiuto</string>
+    <string name="menu_project">Progetto su GitHub</string>
+    <string name="menu_report_issue">Segnala un problema…</string>
+    <string name="window_menu">Finestra</string>
+    <string name="window_minimize">Contrai</string>
+    <string name="window_zoom">Ridimensiona</string>
+    <string name="window_bring_all_to_front">Porta tutto in primo piano</string>
     <string name="tray_quit">Esci da RenVault</string>
 </resources>

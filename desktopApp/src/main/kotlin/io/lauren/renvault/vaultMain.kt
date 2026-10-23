@@ -66,6 +66,7 @@ fun main() {
 
 private fun vaultApplication() = application {
     val state = rememberWindowState(size = StartSize)
+    val macOS = remember { System.getProperty("os.name").startsWith("Mac", ignoreCase = true) }
     val tray = remember { runCatching { SystemTray.isSupported() }.getOrDefault(false) }
     var visible by remember { mutableStateOf(true) }
     val strings = rememberStrings(currentLocaleTag())
@@ -94,6 +95,17 @@ private fun vaultApplication() = application {
         title = "RenVault",
         undecorated = true,
     ) {
+        if (macOS) {
+            LaunchedEffect(strings) {
+                MacMenuBar.install(strings, onOpen = {
+                    visible = true
+                    state.isMinimized = false
+                    window.toFront()
+                    window.requestFocus()
+                })
+            }
+        }
+
         LaunchedEffect(visible) {
             if (!visible) return@LaunchedEffect
             state.isMinimized = false

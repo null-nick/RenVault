@@ -11,6 +11,24 @@ import io.lauren.renvault.lib.unescape
 import io.lauren.renvault.lib.RvZoneKind
 import io.lauren.renvault.lib.RvZoneText
 import io.lauren.renvault.resources.tray_open
+import io.lauren.renvault.resources.menu_file
+import io.lauren.renvault.resources.menu_close_window
+import io.lauren.renvault.resources.menu_edit
+import io.lauren.renvault.resources.menu_undo
+import io.lauren.renvault.resources.menu_redo
+import io.lauren.renvault.resources.menu_cut
+import io.lauren.renvault.resources.menu_copy
+import io.lauren.renvault.resources.menu_paste
+import io.lauren.renvault.resources.menu_select_all
+import io.lauren.renvault.resources.menu_view
+import io.lauren.renvault.resources.menu_full_screen
+import io.lauren.renvault.resources.menu_help
+import io.lauren.renvault.resources.menu_project
+import io.lauren.renvault.resources.menu_report_issue
+import io.lauren.renvault.resources.window_menu
+import io.lauren.renvault.resources.window_minimize
+import io.lauren.renvault.resources.window_zoom
+import io.lauren.renvault.resources.window_bring_all_to_front
 import io.lauren.renvault.resources.tray_quit
 import io.lauren.renvault.resources.photo_filter
 import io.lauren.renvault.resources.settings_sync_title
@@ -534,6 +552,24 @@ private val TextResources = listOf(
     Res.string.settings_sync_title,
     Res.string.photo_filter,
     Res.string.tray_open,
+    Res.string.menu_file,
+    Res.string.menu_close_window,
+    Res.string.menu_edit,
+    Res.string.menu_undo,
+    Res.string.menu_redo,
+    Res.string.menu_cut,
+    Res.string.menu_copy,
+    Res.string.menu_paste,
+    Res.string.menu_select_all,
+    Res.string.menu_view,
+    Res.string.menu_full_screen,
+    Res.string.menu_help,
+    Res.string.menu_project,
+    Res.string.menu_report_issue,
+    Res.string.window_menu,
+    Res.string.window_minimize,
+    Res.string.window_zoom,
+    Res.string.window_bring_all_to_front,
     Res.string.tray_quit,
 )
 
@@ -750,6 +786,24 @@ private class ResourceStrings(
 
     override val failureGeneric: String get() = text(Res.string.failure_generic)
     override val trayOpen: String get() = text(Res.string.tray_open)
+    override val menuFile: String get() = text(Res.string.menu_file)
+    override val menuCloseWindow: String get() = text(Res.string.menu_close_window)
+    override val menuEdit: String get() = text(Res.string.menu_edit)
+    override val menuUndo: String get() = text(Res.string.menu_undo)
+    override val menuRedo: String get() = text(Res.string.menu_redo)
+    override val menuCut: String get() = text(Res.string.menu_cut)
+    override val menuCopy: String get() = text(Res.string.menu_copy)
+    override val menuPaste: String get() = text(Res.string.menu_paste)
+    override val menuSelectAll: String get() = text(Res.string.menu_select_all)
+    override val menuView: String get() = text(Res.string.menu_view)
+    override val menuFullScreen: String get() = text(Res.string.menu_full_screen)
+    override val menuHelp: String get() = text(Res.string.menu_help)
+    override val menuProject: String get() = text(Res.string.menu_project)
+    override val menuReportIssue: String get() = text(Res.string.menu_report_issue)
+    override val windowMenu: String get() = text(Res.string.window_menu)
+    override val windowMinimize: String get() = text(Res.string.window_minimize)
+    override val windowZoom: String get() = text(Res.string.window_zoom)
+    override val windowBringAllToFront: String get() = text(Res.string.window_bring_all_to_front)
     override val trayQuit: String get() = text(Res.string.tray_quit)
     override val photoFilter: String get() = text(Res.string.photo_filter)
     override val settingsSyncTitle: String get() = text(Res.string.settings_sync_title)

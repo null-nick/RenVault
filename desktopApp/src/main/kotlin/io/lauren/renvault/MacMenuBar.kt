@@ -1,0 +1,48 @@
+package io.lauren.renvault
+
+import io.lauren.renvault.lib.RvStrings
+import java.awt.EventQueue
+import java.awt.KeyboardFocusManager
+import java.awt.event.InputEvent
+import java.awt.event.KeyEvent
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+
+internal object MacMenuBar {
+    init {
+        val library = Files.createTempFile("renvault-menu-bar-", ".dylib")
+        library.toFile().deleteOnExit()
+        val stream = checkNotNull(javaClass.getResourceAsStream("/native/librenvault-menu-bar.dylib")) {
+            "The macOS menu library is missing from the runtime classpath"
+        }
+        stream.use { Files.copy(it, library, StandardCopyOption.REPLACE_EXISTING) }
+        System.load(library.toAbsolutePath().toString())
+    }
+
+    private var onOpen: () -> Unit = {}
+
+    fun install(strings: RvStrings, onOpen: () -> Unit) {
+        this.onOpen = onOpen
+        installNative(strings)
+    }
+
+    // Called on AppKit's thread. Compose and AWT input must run on the EDT.
+    @JvmStatic
+    private fun performAction(keyCode: Int, shift: Boolean) {
+        EventQueue.invokeLater {
+            if (keyCode == 0) {
+                onOpen()
+                return@invokeLater
+            }
+            val manager = KeyboardFocusManager.getCurrentKeyboardFocusManager()
+            val target = manager.focusOwner ?: return@invokeLater
+            val modifiers = InputEvent.META_DOWN_MASK or if (shift) InputEvent.SHIFT_DOWN_MASK else 0
+            val whenMillis = System.currentTimeMillis()
+            for (type in intArrayOf(KeyEvent.KEY_PRESSED, KeyEvent.KEY_RELEASED)) {
+                manager.redispatchEvent(target, KeyEvent(target, type, whenMillis, modifiers, keyCode, KeyEvent.CHAR_UNDEFINED))
+            }
+        }
+    }
+
+    private external fun installNative(strings: RvStrings)
+}

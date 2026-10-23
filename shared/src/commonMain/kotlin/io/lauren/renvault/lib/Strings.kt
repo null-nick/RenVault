@@ -161,6 +161,24 @@ interface RvStrings {
 
     val failureGeneric: String
     val trayOpen: String
+    val menuFile: String
+    val menuCloseWindow: String
+    val menuEdit: String
+    val menuUndo: String
+    val menuRedo: String
+    val menuCut: String
+    val menuCopy: String
+    val menuPaste: String
+    val menuSelectAll: String
+    val menuView: String
+    val menuFullScreen: String
+    val menuHelp: String
+    val menuProject: String
+    val menuReportIssue: String
+    val windowMenu: String
+    val windowMinimize: String
+    val windowZoom: String
+    val windowBringAllToFront: String
     val trayQuit: String
     val photoFilter: String
     val settingsSyncTitle: String

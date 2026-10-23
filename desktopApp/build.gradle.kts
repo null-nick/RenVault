@@ -22,6 +22,27 @@ val runtime = javaToolchains.launcherFor {
     vendor = JvmVendorSpec.JETBRAINS
 }
 
+if (System.getProperty("os.name").startsWith("Mac", ignoreCase = true)) {
+    val compileMacMenuBar by tasks.registering(Exec::class) {
+        val source = layout.projectDirectory.file("src/main/native/MacMenuBar.m")
+        val library = layout.buildDirectory.file("native/librenvault-menu-bar.dylib")
+        val javaHome = runtime.get().metadata.installationPath.asFile
+        inputs.file(source)
+        inputs.property("architecture", System.getProperty("os.arch"))
+        outputs.file(library)
+        commandLine(
+            "xcrun", "clang", "-dynamiclib", "-fobjc-arc", "-mmacosx-version-min=11.0",
+            "-framework", "Cocoa",
+            "-I$javaHome/include", "-I$javaHome/include/darwin",
+            source.asFile.absolutePath, "-o", library.get().asFile.absolutePath,
+        )
+        doFirst { outputs.files.singleFile.parentFile.mkdirs() }
+    }
+    tasks.processResources {
+        from(compileMacMenuBar) { into("native") }
+    }
+}
+
 compose.desktop {
     application {
         mainClass = System.getProperty("renvault.main") ?: "io.lauren.renvault.MainKt"
