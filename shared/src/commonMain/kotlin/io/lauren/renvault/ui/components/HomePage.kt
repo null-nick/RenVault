@@ -24,11 +24,14 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -136,6 +139,8 @@ fun RvHomePage(
     onNames: suspend (List<RvNameSwap>) -> Unit = {},
     onNameNotice: (Boolean) -> Unit = {},
     devices: RvDeviceActions? = null,
+    accountMenuEnabled: Boolean = true,
+    onAccountMenuActions: ((RvAccountMenuActions?) -> Unit)? = null,
 ) {
     if (zones.isEmpty()) return
 
@@ -146,7 +151,29 @@ fun RvHomePage(
     var zoneKind by remember { mutableStateOf<RvZoneKind?>(null) }
     var itemId by remember { mutableStateOf<String?>(null) }
     var settingsOpen by remember { mutableStateOf(false) }
+    var settingsRequest by remember { mutableStateOf<RvSettingsRequest?>(null) }
     var creating by remember { mutableStateOf(false) }
+
+    fun openSettings(destination: RvSettingsDestination) {
+        settingsRequest = RvSettingsRequest(destination)
+        settingsOpen = true
+    }
+
+    val lockNow by rememberUpdatedState(onLockNow)
+    val accountActions = remember(accountMenuEnabled, settingsBusy, settings.local, devices != null) {
+        if (!accountMenuEnabled || settingsBusy) null else RvAccountMenuActions(
+            local = settings.local,
+            openSettings = { openSettings(RvSettingsDestination.Overview) },
+            lock = { lockNow() },
+            signOut = { openSettings(RvSettingsDestination.SignOut) },
+            editProfile = if (settings.local && devices != null) ({ openSettings(RvSettingsDestination.Profile) }) else null,
+            openDevices = if (devices != null) ({ openSettings(RvSettingsDestination.Devices) }) else null,
+        )
+    }
+    SideEffect { onAccountMenuActions?.invoke(accountActions) }
+    DisposableEffect(onAccountMenuActions) {
+        onDispose { onAccountMenuActions?.invoke(null) }
+    }
 
     var query by remember { mutableStateOf("") }
     var searching by remember { mutableStateOf(false) }
@@ -278,7 +305,7 @@ fun RvHomePage(
                 zoneKind = RvZoneKind.All
                 searching = true
             },
-            onSettings = { settingsOpen = true },
+            onSettings = { openSettings(RvSettingsDestination.Overview) },
             onAdd = { creating = true },
         )
     }
@@ -354,6 +381,7 @@ fun RvHomePage(
 
     val settingsPane: @Composable (Modifier, Boolean) -> Unit = { paneModifier, dialog ->
         RvSettingsScreen(
+            request = settingsRequest,
             state = settings.copy(nameMatches = nameMatches),
             photo = photo,
             busy = settingsBusy,

@@ -127,6 +127,7 @@ private fun vaultApplication() = application {
             Box(modifier = Modifier.fillMaxSize()) {
                 RvVaultApp(
                     title = "RenVault",
+                    onAccountMenuActions = if (macOS) MacMenuBar::updateAccount else null,
                     titleBar = {
                         TitleDrag(
                             maximised = maximised,

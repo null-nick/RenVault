@@ -11,6 +11,9 @@ import io.lauren.renvault.lib.unescape
 import io.lauren.renvault.lib.RvZoneKind
 import io.lauren.renvault.lib.RvZoneText
 import io.lauren.renvault.resources.tray_open
+import io.lauren.renvault.resources.menu_settings
+import io.lauren.renvault.resources.menu_account
+import io.lauren.renvault.resources.menu_sign_out
 import io.lauren.renvault.resources.menu_file
 import io.lauren.renvault.resources.menu_close_window
 import io.lauren.renvault.resources.menu_edit
@@ -552,6 +555,9 @@ private val TextResources = listOf(
     Res.string.settings_sync_title,
     Res.string.photo_filter,
     Res.string.tray_open,
+    Res.string.menu_settings,
+    Res.string.menu_account,
+    Res.string.menu_sign_out,
     Res.string.menu_file,
     Res.string.menu_close_window,
     Res.string.menu_edit,
@@ -786,6 +792,9 @@ private class ResourceStrings(
 
     override val failureGeneric: String get() = text(Res.string.failure_generic)
     override val trayOpen: String get() = text(Res.string.tray_open)
+    override val menuSettings: String get() = text(Res.string.menu_settings)
+    override val menuAccount: String get() = text(Res.string.menu_account)
+    override val menuSignOut: String get() = text(Res.string.menu_sign_out)
     override val menuFile: String get() = text(Res.string.menu_file)
     override val menuCloseWindow: String get() = text(Res.string.menu_close_window)
     override val menuEdit: String get() = text(Res.string.menu_edit)

@@ -322,6 +322,9 @@
     <string name="settings_sync_title">Sincronizzazione</string>
     <string name="photo_filter">Immagini</string>
     <string name="tray_open">Apri RenVault</string>
+    <string name="menu_settings">Impostazioni…</string>
+    <string name="menu_account">Account</string>
+    <string name="menu_sign_out">Esci dall’account…</string>
     <string name="menu_file">File</string>
     <string name="menu_close_window">Chiudi finestra</string>
     <string name="menu_edit">Modifica</string>

@@ -55,6 +55,7 @@ import io.lauren.renvault.ui.components.RvAuthProfile
 import io.lauren.renvault.ui.components.RvEditorDraft
 import io.lauren.renvault.ui.components.RvFavicon
 import io.lauren.renvault.ui.components.RvHomePage
+import io.lauren.renvault.ui.components.RvAccountMenuActions
 import io.lauren.renvault.ui.components.RvSettingsState
 import io.lauren.renvault.ui.components.RvVaultShell
 import io.lauren.renvault.ui.components.fitted
@@ -77,6 +78,7 @@ fun RvVaultApp(
     strings: RvStrings = LocalStrings.current,
     titleBar: @Composable (() -> Unit)? = null,
     onOpenUrl: ((String) -> Unit)? = null,
+    onAccountMenuActions: ((RvAccountMenuActions?) -> Unit)? = null,
 ) {
     val links = LocalUriHandler.current
     val openUrl: (String) -> Unit = onOpenUrl ?: { target -> runCatching { links.openUri(target) } }
@@ -357,6 +359,8 @@ fun RvVaultApp(
             CompositionLocalProvider(LocalNameMask provides mask, LocalNameNotice provides nameNotice) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     RvHomePage(
+                        accountMenuEnabled = unlocked && !leaving,
+                        onAccountMenuActions = onAccountMenuActions,
                         zones = zones,
                         secrets = secrets,
                         title = title,

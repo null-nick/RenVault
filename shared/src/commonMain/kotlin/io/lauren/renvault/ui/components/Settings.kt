@@ -85,6 +85,11 @@ data class RvSettingsState(
 
 private enum class SettingsPage { Root, Language, Names, Devices }
 
+enum class RvSettingsDestination { Overview, Profile, Devices, SignOut }
+
+// A new instance allows a menu to request the same destination again after dismissal.
+class RvSettingsRequest(val destination: RvSettingsDestination)
+
 @Composable
 fun RvSettingsScreen(
     state: RvSettingsState,
@@ -104,9 +109,19 @@ fun RvSettingsScreen(
     onOpenItem: (String) -> Unit = {},
     onNameNotice: (Boolean) -> Unit = {},
     devices: RvDeviceActions? = null,
+    request: RvSettingsRequest? = null,
 ) {
     var page by remember { mutableStateOf(SettingsPage.Root) }
+    var profileOpen by remember { mutableStateOf(false) }
+    var signOutOpen by remember { mutableStateOf(false) }
     val motion = MaterialTheme.motionScheme
+
+    LaunchedEffect(request) {
+        val destination = request?.destination ?: return@LaunchedEffect
+        page = if (destination == RvSettingsDestination.Devices && devices != null) SettingsPage.Devices else SettingsPage.Root
+        profileOpen = destination == RvSettingsDestination.Profile && state.local && devices != null
+        signOutOpen = destination == RvSettingsDestination.SignOut
+    }
 
     RvBackHandler(enabled = page != SettingsPage.Root) { page = SettingsPage.Root }
 
@@ -156,11 +171,34 @@ fun RvSettingsScreen(
                 onAutoLock = onAutoLock,
                 onLockNow = onLockNow,
                 onCheckPwned = onCheckPwned,
-                onSignOut = onSignOut,
+                onSignOut = { signOutOpen = true },
+                onProfile = { profileOpen = true },
                 onAnisette = onAnisette,
                 onShowPwned = onShowPwned,
             )
         }
+    }
+
+    RvConfirmDialog(
+        open = signOutOpen,
+        onOpenChange = { signOutOpen = it },
+        title = if (state.local) strings.settingsDeleteVaultTitle else strings.settingsSignOutTitle,
+        description = if (state.local) strings.settingsDeleteVaultDesc else strings.settingsSignOutDesc,
+        confirm = if (state.local) strings.settingsDeleteVault else strings.settingsSignOut,
+        cancel = strings.cancel,
+        danger = true,
+        icon = if (state.local) RvDeleteIcon else RvLogoutIcon,
+        onConfirm = onSignOut,
+    )
+
+    if (profileOpen && devices != null) {
+        ProfileDialog(
+            name = state.profileName,
+            photo = photo,
+            actions = devices,
+            strings = strings,
+            onDismiss = { profileOpen = false },
+        )
     }
 
     RvLoadingDialog(shown = busy)
@@ -199,6 +237,7 @@ private fun RootPage(
     onLockNow: () -> Unit,
     onCheckPwned: suspend () -> Int,
     onSignOut: () -> Unit,
+    onProfile: () -> Unit,
     onAnisette: suspend (String) -> Boolean,
     onShowPwned: () -> Unit,
 ) {
@@ -212,9 +251,7 @@ private fun RootPage(
     val background = if (dialog) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.surface
 
     var lockOpen by remember { mutableStateOf(false) }
-    var signOutOpen by remember { mutableStateOf(false) }
     var anisetteOpen by remember { mutableStateOf(false) }
-    var profileOpen by remember { mutableStateOf(false) }
     val editable = state.local && devices != null
 
     var now by remember { mutableLongStateOf(Clock.System.now().toEpochMilliseconds()) }
@@ -308,7 +345,7 @@ private fun RootPage(
                     }
                     if (editable) {
                         OutlinedButton(
-                            onClick = { profileOpen = true },
+                            onClick = onProfile,
                             shapes = ButtonDefaults.shapes(),
                             modifier = Modifier.padding(top = 8.dp),
                         ) {
@@ -470,7 +507,7 @@ private fun RootPage(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     RvButton(
                         text = if (state.local) strings.settingsDeleteVault else strings.settingsSignOut,
-                        onClick = { signOutOpen = true },
+                        onClick = onSignOut,
                         kind = RvButtonKind.DangerTonal,
                         icon = if (state.local) RvDeleteIcon else RvLogoutIcon,
                     )
@@ -503,28 +540,6 @@ private fun RootPage(
         strings = strings,
         onSave = onAnisette,
     )
-
-    RvConfirmDialog(
-        open = signOutOpen,
-        onOpenChange = { signOutOpen = it },
-        title = if (state.local) strings.settingsDeleteVaultTitle else strings.settingsSignOutTitle,
-        description = if (state.local) strings.settingsDeleteVaultDesc else strings.settingsSignOutDesc,
-        confirm = if (state.local) strings.settingsDeleteVault else strings.settingsSignOut,
-        cancel = strings.cancel,
-        danger = true,
-        icon = if (state.local) RvDeleteIcon else RvLogoutIcon,
-        onConfirm = onSignOut,
-    )
-
-    if (profileOpen && devices != null) {
-        ProfileDialog(
-            name = state.profileName,
-            photo = photo,
-            actions = devices,
-            strings = strings,
-            onDismiss = { profileOpen = false },
-        )
-    }
 }
 
 @Composable

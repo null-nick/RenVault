@@ -1,6 +1,7 @@
 package io.lauren.renvault
 
 import io.lauren.renvault.lib.RvStrings
+import io.lauren.renvault.ui.components.RvAccountMenuActions
 import java.awt.EventQueue
 import java.awt.KeyboardFocusManager
 import java.awt.event.InputEvent
@@ -20,10 +21,25 @@ internal object MacMenuBar {
     }
 
     private var onOpen: () -> Unit = {}
+    private var accountActions: RvAccountMenuActions? = null
+    private var installed = false
 
     fun install(strings: RvStrings, onOpen: () -> Unit) {
         this.onOpen = onOpen
         installNative(strings)
+        installed = true
+        syncAccountState()
+    }
+
+    fun updateAccount(actions: RvAccountMenuActions?) {
+        if (accountActions === actions) return
+        accountActions = actions
+        if (installed) syncAccountState()
+    }
+
+    private fun syncAccountState() {
+        val actions = accountActions
+        updateAccountNative(actions != null, actions?.local == true, actions?.editProfile != null, actions?.openDevices != null)
     }
 
     // Called on AppKit's thread. Compose and AWT input must run on the EDT.
@@ -32,6 +48,20 @@ internal object MacMenuBar {
         EventQueue.invokeLater {
             if (keyCode == 0) {
                 onOpen()
+                return@invokeLater
+            }
+            if (keyCode < 0) {
+                val actions = accountActions ?: return@invokeLater
+                val action = when (keyCode) {
+                    -1 -> actions.openSettings
+                    -2 -> actions.editProfile
+                    -3 -> actions.openDevices
+                    -4 -> actions.lock
+                    -5 -> actions.signOut
+                    else -> null
+                } ?: return@invokeLater
+                onOpen()
+                action()
                 return@invokeLater
             }
             val manager = KeyboardFocusManager.getCurrentKeyboardFocusManager()
@@ -45,4 +75,5 @@ internal object MacMenuBar {
     }
 
     private external fun installNative(strings: RvStrings)
+    private external fun updateAccountNative(enabled: Boolean, local: Boolean, profile: Boolean, devices: Boolean)
 }

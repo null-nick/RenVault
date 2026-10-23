@@ -5,6 +5,14 @@ static JavaVM *javaVM;
 static jclass javaMenuClass;
 static jmethodID javaAction;
 
+typedef NS_ENUM(NSInteger, RVAccountAction) {
+    RVOpenSettings = -1,
+    RVEditProfile = -2,
+    RVOpenDevices = -3,
+    RVLockVault = -4,
+    RVSignOut = -5,
+};
+
 static void sendJavaAction(jint keyCode, jboolean shift) {
     JNIEnv *env;
     BOOL attached = (*javaVM)->GetEnv(javaVM, (void **)&env, JNI_VERSION_1_6) == JNI_OK;
@@ -22,8 +30,18 @@ static void sendJavaAction(jint keyCode, jboolean shift) {
 @property NSArray<NSMenu *> *menus;
 @property id editKeyMonitor;
 @property NSDictionary<NSString *, NSString *> *titles;
+@property NSMenuItem *settingsItem;
+@property NSMenuItem *profileItem;
+@property NSMenuItem *devicesItem;
+@property NSMenuItem *accountDetailsSeparator;
+@property NSMenuItem *signOutItem;
+@property BOOL accountEnabled;
+@property BOOL localAccount;
+@property BOOL profileAvailable;
+@property BOOL devicesAvailable;
 - (instancetype)initWithTitles:(NSDictionary<NSString *, NSString *> *)titles;
 - (void)updateTitles:(NSDictionary<NSString *, NSString *> *)titles;
+- (void)updateAccountItems;
 @end
 
 static RVMacMenuBar *applicationMenus;
@@ -53,10 +71,25 @@ static RVMacMenuBar *applicationMenus;
     item.keyEquivalentModifierMask = NSEventModifierFlagCommand | (shift ? NSEventModifierFlagShift : 0);
 }
 
+- (NSMenuItem *)addAccountItem:(NSString *)titleKey to:(NSMenu *)menu action:(RVAccountAction)action key:(NSString *)key {
+    NSMenuItem *item = [self addItem:titleKey to:menu action:@selector(accountAction:) key:key];
+    item.target = self;
+    item.tag = action;
+    return item;
+}
+
 - (instancetype)initWithTitles:(NSDictionary<NSString *, NSString *> *)titles {
     self = [super init];
     if (!self) return nil;
     self.titles = titles;
+
+    NSMenu *appMenu = [NSApp.mainMenu itemAtIndex:0].submenu;
+    self.settingsItem = [[NSMenuItem alloc] initWithTitle:titles[@"getMenuSettings"] action:@selector(accountAction:) keyEquivalent:@","];
+    self.settingsItem.target = self;
+    self.settingsItem.tag = RVOpenSettings;
+    NSInteger settingsIndex = MIN(2, appMenu.numberOfItems);
+    [appMenu insertItem:self.settingsItem atIndex:settingsIndex];
+    [appMenu insertItem:NSMenuItem.separatorItem atIndex:settingsIndex + 1];
 
     NSMenu *file = [self addMenu:@"getMenuFile"];
     [self addItem:@"getTrayOpen" to:file action:@selector(openWindow:) key:@""].target = self;
@@ -76,6 +109,16 @@ static RVMacMenuBar *applicationMenus;
     NSMenuItem *fullScreen = [self addItem:@"getMenuFullScreen" to:view action:@selector(toggleFullScreen:) key:@"f"];
     fullScreen.keyEquivalentModifierMask = NSEventModifierFlagCommand | NSEventModifierFlagControl;
 
+    NSMenu *account = [self addMenu:@"getMenuAccount"];
+    self.profileItem = [self addAccountItem:@"getProfileEditTitle" to:account action:RVEditProfile key:@""];
+    self.devicesItem = [self addAccountItem:@"getDevicesTitle" to:account action:RVOpenDevices key:@""];
+    self.accountDetailsSeparator = NSMenuItem.separatorItem;
+    [account addItem:self.accountDetailsSeparator];
+    NSMenuItem *lock = [self addAccountItem:@"getSettingsLockNow" to:account action:RVLockVault key:@"l"];
+    lock.keyEquivalentModifierMask = NSEventModifierFlagCommand | NSEventModifierFlagShift;
+    [account addItem:NSMenuItem.separatorItem];
+    self.signOutItem = [self addAccountItem:@"getMenuSignOut" to:account action:RVSignOut key:@""];
+
     NSMenu *windows = [self addMenu:@"getWindowMenu"];
     [self addItem:@"getWindowMinimize" to:windows action:@selector(performMiniaturize:) key:@"m"];
     [self addItem:@"getWindowZoom" to:windows action:@selector(performZoom:) key:@""];
@@ -88,7 +131,8 @@ static RVMacMenuBar *applicationMenus;
     [self addItem:@"getMenuProject" to:help action:@selector(openProject:) key:@""].target = self;
     [self addItem:@"getMenuReportIssue" to:help action:@selector(reportIssue:) key:@""].target = self;
     NSApp.helpMenu = help;
-    self.menus = @[file, self.editMenu, view, windows, help];
+    self.menus = @[file, self.editMenu, view, account, windows, help];
+    [self updateAccountItems];
 
     // AWT forwards key equivalents to Compose before AppKit handles menus.
     // Handle Edit shortcuts here so each reaches the focused field exactly once.
@@ -102,6 +146,7 @@ static RVMacMenuBar *applicationMenus;
 
 - (void)updateTitles:(NSDictionary<NSString *, NSString *> *)titles {
     self.titles = titles;
+    self.settingsItem.title = titles[@"getMenuSettings"];
     for (NSMenu *menu in self.menus) {
         NSMenuItem *parent = [NSApp.mainMenu itemAtIndex:[NSApp.mainMenu indexOfItemWithSubmenu:menu]];
         menu.title = parent.title = titles[parent.representedObject];
@@ -112,13 +157,39 @@ static RVMacMenuBar *applicationMenus;
             }
         }
     }
+    [self updateAccountItems];
+}
+
+- (void)updateAccountItems {
+    self.settingsItem.enabled = self.accountEnabled;
+    self.profileItem.hidden = !self.profileAvailable;
+    self.devicesItem.hidden = !self.devicesAvailable;
+    self.accountDetailsSeparator.hidden = !self.profileAvailable && !self.devicesAvailable;
+    self.profileItem.title = [self.titles[@"getProfileEditTitle"] stringByAppendingString:@"…"];
+    self.devicesItem.title = [self.titles[@"getDevicesTitle"] stringByAppendingString:@"…"];
+    self.signOutItem.title = self.localAccount
+        ? [self.titles[@"getSettingsDeleteVault"] stringByAppendingString:@"…"]
+        : self.titles[@"getMenuSignOut"];
+    for (NSMenuItem *item in self.signOutItem.menu.itemArray) {
+        if (item.action == @selector(accountAction:)) item.enabled = [self validateMenuItem:item];
+    }
 }
 
 - (BOOL)validateMenuItem:(NSMenuItem *)item {
+    if (item.action == @selector(accountAction:)) {
+        if (!self.accountEnabled) return NO;
+        if (item.tag == RVEditProfile) return self.profileAvailable;
+        if (item.tag == RVOpenDevices) return self.devicesAvailable;
+        return YES;
+    }
     return item.action != @selector(edit:) || NSApp.keyWindow != nil;
 }
 
 - (void)openWindow:(id)sender { sendJavaAction(0, JNI_FALSE); }
+
+- (void)accountAction:(NSMenuItem *)sender {
+    if ([self validateMenuItem:sender]) sendJavaAction((jint)sender.tag, JNI_FALSE);
+}
 
 - (void)edit:(NSMenuItem *)sender {
     BOOL shift = (sender.tag & 0x100) != 0;
@@ -168,6 +239,8 @@ JNIEXPORT void JNICALL Java_io_lauren_renvault_MacMenuBar_installNative(JNIEnv *
             "getMenuUndo", "getMenuRedo", "getMenuCut", "getMenuCopy", "getMenuPaste", "getMenuSelectAll",
             "getMenuView", "getMenuFullScreen", "getWindowMenu", "getWindowMinimize", "getWindowZoom",
             "getWindowBringAllToFront", "getMenuHelp", "getMenuProject", "getMenuReportIssue",
+            "getMenuSettings", "getMenuAccount", "getMenuSignOut", "getProfileEditTitle",
+            "getDevicesTitle", "getSettingsLockNow", "getSettingsDeleteVault",
         };
         NSMutableDictionary *titles = [NSMutableDictionary dictionary];
         jclass stringsClass = (*env)->GetObjectClass(env, strings);
@@ -193,3 +266,14 @@ JNIEXPORT void JNICALL Java_io_lauren_renvault_MacMenuBar_installNative(JNIEnv *
     }
 }
 
+JNIEXPORT void JNICALL Java_io_lauren_renvault_MacMenuBar_updateAccountNative(
+    JNIEnv *env, jobject self, jboolean enabled, jboolean local, jboolean profile, jboolean devices
+) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        applicationMenus.accountEnabled = enabled;
+        applicationMenus.localAccount = local;
+        applicationMenus.profileAvailable = profile;
+        applicationMenus.devicesAvailable = devices;
+        [applicationMenus updateAccountItems];
+    });
+}
